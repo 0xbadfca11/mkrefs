@@ -82,6 +82,10 @@ void RefsFormatEnable()
 	{
 		die();
 	}
+	if (!FlushInstructionCache(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.si.Address), sizeof mov_eax_1_ret))
+	{
+		die();
+	}
 #else
 #error Unsupported architecture
 #endif
