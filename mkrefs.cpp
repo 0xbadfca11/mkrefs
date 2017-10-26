@@ -14,7 +14,7 @@
 #include <atlchecked.h>
 #include <conio.h>
 #include <crtdbg.h>
-#include "fmifs.h"
+#include "FMIFS.H"
 #pragma comment(lib, "dbghelp")
 #pragma comment(lib, "pathcch")
 
@@ -83,7 +83,7 @@ void RefsFormatEnable()
 		die();
 	}
 #else
-#error
+#error Unsupported architecture
 #endif
 }
 struct format_options
@@ -132,7 +132,7 @@ bool Format(const format_options& format_opts)
 	ATL::AtlCrtErrorCheck(wcscpy_s(mount_point, format_opts.volume));
 	ATLENSURE_SUCCEEDED(PathCchAddBackslash(mount_point, ARRAYSIZE(mount_point)));
 	WCHAR volume_root[50];
-	if (!GetVolumeNameForVolumeMountPoint(mount_point, volume_root, ARRAYSIZE(volume_root)))
+	if (!GetVolumeNameForVolumeMountPointW(mount_point, volume_root, ARRAYSIZE(volume_root)))
 	{
 		if (GetLastError() == ERROR_NOT_A_REPARSE_POINT)
 		{
@@ -170,6 +170,7 @@ bool Format(const format_options& format_opts)
 			switch (toupper(_getch()))
 			{
 			case 'Y':
+				puts(" \"Y\" pressed");
 				break;
 			case 'N':
 				ExitProcess(EXIT_FAILURE);
@@ -178,7 +179,6 @@ bool Format(const format_options& format_opts)
 			}
 			break;
 		}
-		puts("");
 	}
 	FSCTL_SET_INTEGRITY_INFORMATION_BUFFER set_integrity = {};
 	if (format_opts.integrity)
@@ -219,6 +219,7 @@ bool Format(const format_options& format_opts)
 				switch (toupper(_getch()))
 				{
 				case 'Y':
+					puts(" \"Y\" pressed");
 					DeviceIoControl(volume, FSCTL_DISMOUNT_VOLUME, nullptr, 0, nullptr, 0, &junk, nullptr);
 					break;
 				case 'N':
@@ -228,7 +229,6 @@ bool Format(const format_options& format_opts)
 				}
 				break;
 			}
-			puts("");
 		}
 	}
 	volume.Close();
@@ -345,4 +345,5 @@ int __cdecl wmain(int argc, PWSTR argv[])
 
 	RefsFormatEnable();
 	Format(format_opts);
+	puts("Done.");
 }
