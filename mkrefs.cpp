@@ -73,7 +73,7 @@ void RefsFormatEnable()
 	}
 #ifdef _DEBUG
 	symbol_info.si.MaxNameLen = MAX_SYM_NAME;
-	_ASSERT((SymFromAddr(CurrentProcess, symbol_info.si.Address, nullptr, &symbol_info.si)));
+	_ASSERT(SymFromAddr(CurrentProcess, symbol_info.si.Address, nullptr, &symbol_info.si));
 	_ASSERT(strcmp(symbol_info.si.Name, "IsRefsFormatEnabled") == 0);
 #endif
 #if defined(_M_AMD64) || defined(_M_IX86)
