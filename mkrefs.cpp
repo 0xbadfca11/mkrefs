@@ -240,7 +240,7 @@ bool Format(const format_options& format_opts)
 	FormatEx(volume_name, MEDIA_TYPE::FixedMedia, const_cast<PWSTR>(L"ReFS"), const_cast<PWSTR>(format_opts.label), TRUE, format_opts.cluster_size, FormatExCallback);
 	if (!format_status)
 	{
-		fputs("Format failed.", stderr);
+		fputs("Format failed.\n", stderr);
 		_CrtDbgBreak();
 		return false;
 	}
@@ -348,6 +348,9 @@ int __cdecl wmain(int argc, PWSTR argv[])
 	}
 
 	RefsFormatEnable();
-	Format(format_opts);
+	if (!Format(format_opts))
+	{
+		ExitProcess(EXIT_FAILURE);
+	}
 	puts("Done.");
 }
