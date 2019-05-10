@@ -9,7 +9,6 @@
 #include <clocale>
 #include <cstring>
 #include <optional>
-#include <string>
 #include <atlbase.h>
 #include <atlchecked.h>
 #include <conio.h>
@@ -46,8 +45,11 @@ void RefsFormatEnable()
 	{
 		WCHAR temp[MAX_PATH];
 		ATLENSURE(GetTempPathW(ARRAYSIZE(temp), temp));
-		std::wstring symsrv = std::wstring(L"srv*") + temp + L"*https://msdl.microsoft.com/download/symbols";
-		SetEnvironmentVariableW(L"_NT_SYMBOL_PATH", symsrv.c_str());
+		WCHAR symsrv[ARRAYSIZE(temp) + 4 + 44];
+		ATL::AtlCrtErrorCheck(wcscpy_s(symsrv, L"srv*"));
+		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, temp));
+		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, L"*https://msdl.microsoft.com/download/symbols"));
+		SetEnvironmentVariableW(L"_NT_SYMBOL_PATH", symsrv);
 	}
 	SymSetOptions(SymGetOptions() | SYMOPT_DEFERRED_LOADS | SYMOPT_FAVOR_COMPRESSED);
 	HANDLE CurrentProcess = GetCurrentProcess();
@@ -157,7 +159,6 @@ bool Format(const format_options& format_opts)
 	}
 	WCHAR volume_name[50];
 	ATL::AtlCrtErrorCheck(wcsncpy_s(volume_name, volume_root, wcslen(volume_root) - 1));
-
 
 	ULONG junk;
 	ATL::CHandle volume(CreateFileW(volume_name, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
