@@ -28,11 +28,11 @@ void die()
 }
 void RefsFormatEnable()
 {
-	if (!LoadLibraryW(L"symsrv"))
+	if (!LoadLibraryExW(L"symsrv", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR))
 	{
 		die();
 	}
-	if (!LoadLibraryW(L"dbghelp"))
+	if (!LoadLibraryExW(L"dbghelp", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR))
 	{
 		die();
 	}
@@ -273,7 +273,7 @@ bool Format(const format_options& format_opts)
 }
 int __cdecl wmain(int argc, PWSTR argv[])
 {
-	ATLENSURE(SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32));
+	ATLENSURE(SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32));
 	PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY SignedDllPolicy;
 	ATLENSURE(GetProcessMitigationPolicy(GetCurrentProcess(), ProcessSignaturePolicy, &SignedDllPolicy, sizeof SignedDllPolicy));
 	SignedDllPolicy.MicrosoftSignedOnly = 1;
