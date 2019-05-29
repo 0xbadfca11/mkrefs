@@ -28,15 +28,15 @@ void die()
 }
 void RefsFormatEnable()
 {
-	if (!LoadLibraryExW(L"symsrv", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR))
+	WCHAR dbghelp[MAX_PATH];
+	ATLENSURE(GetModuleFileNameW(nullptr, dbghelp, ARRAYSIZE(dbghelp)));
+	ATLENSURE_SUCCEEDED(PathCchRemoveFileSpec(dbghelp, ARRAYSIZE(dbghelp)));
+	ATLENSURE_SUCCEEDED(PathCchAppend(dbghelp, ARRAYSIZE(dbghelp), L"dbghelp"));
+	if (!LoadLibraryW(dbghelp))
 	{
 		die();
 	}
-	if (!LoadLibraryExW(L"dbghelp", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR))
-	{
-		die();
-	}
-	HMODULE uReFS = LoadLibraryW(L"uReFS");
+	const HMODULE uReFS = LoadLibraryW(L"uReFS");
 	if (!uReFS)
 	{
 		die();
@@ -49,10 +49,11 @@ void RefsFormatEnable()
 		ATL::AtlCrtErrorCheck(wcscpy_s(symsrv, L"srv*"));
 		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, temp));
 		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, L"*https://msdl.microsoft.com/download/symbols"));
+		__analysis_assume_nullterminated(symsrv);
 		SetEnvironmentVariableW(L"_NT_SYMBOL_PATH", symsrv);
 	}
 	SymSetOptions(SymGetOptions() | SYMOPT_DEFERRED_LOADS | SYMOPT_FAVOR_COMPRESSED);
-	HANDLE CurrentProcess = GetCurrentProcess();
+	const HANDLE CurrentProcess = GetCurrentProcess();
 	if (!SymInitialize(CurrentProcess, nullptr, FALSE))
 	{
 		die();
@@ -79,7 +80,7 @@ void RefsFormatEnable()
 	_ASSERT(strcmp(symbol_info.si.Name, "IsRefsFormatEnabled") == 0);
 #endif
 #if defined(_M_AMD64) || defined(_M_IX86)
-	BYTE mov_eax_1_ret[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
+	const BYTE mov_eax_1_ret[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
 	if (!WriteProcessMemory(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.si.Address), mov_eax_1_ret, sizeof mov_eax_1_ret, nullptr))
 	{
 		die();
@@ -117,6 +118,7 @@ BOOLEAN WINAPI FormatExCallback(CALLBACKCOMMAND Command, [[maybe_unused]] DWORD 
 	}
 	return TRUE;
 }
+#pragma warning(suppress : 6262)
 bool Format(const format_options& format_opts)
 {
 	const HMODULE fmifs = LoadLibraryW(L"fmifs");
@@ -159,6 +161,7 @@ bool Format(const format_options& format_opts)
 	}
 	WCHAR volume_name[50];
 	ATL::AtlCrtErrorCheck(wcsncpy_s(volume_name, volume_root, wcslen(volume_root) - 1));
+	__analysis_assume_nullterminated(volume_name);
 
 	ULONG junk;
 	ATL::CHandle volume(CreateFileW(volume_name, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
@@ -246,7 +249,12 @@ bool Format(const format_options& format_opts)
 		return false;
 	}
 	ATL::CHandle root_directory(CreateFileW(volume_root, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
-	DeviceIoControl(root_directory, FSCTL_SET_INTEGRITY_INFORMATION, &set_integrity, sizeof set_integrity, nullptr, 0, &junk, nullptr);
+	if (!DeviceIoControl(root_directory, FSCTL_SET_INTEGRITY_INFORMATION, &set_integrity, sizeof set_integrity, nullptr, 0, &junk, nullptr))
+	{
+		fputs("Setting integrity attribute failed.\n", stderr);
+		_CrtDbgBreak();
+		return false;
+	}
 	return true;
 }
 [[noreturn]] void usage()
