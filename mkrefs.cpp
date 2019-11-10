@@ -1,6 +1,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define STRICT_GS_ENABLED
 #define _ATL_NO_AUTOMATIC_NAMESPACE
+#define _ATL_NO_DEFAULT_LIBS
+#define _ATL_NO_WIN_SUPPORT
 #define _CRTDBG_MAP_ALLOC
 #include <windows.h>
 #include <dbghelp.h>
@@ -26,7 +28,7 @@ void die()
 	_CrtDbgBreak();
 	ExitProcess(EXIT_FAILURE);
 }
-void RefsFormatEnable()
+void EnableRefsFormat()
 {
 	WCHAR dbghelp[MAX_PATH];
 	ATLENSURE(GetModuleFileNameW(nullptr, dbghelp, ARRAYSIZE(dbghelp)));
@@ -80,12 +82,22 @@ void RefsFormatEnable()
 	_ASSERT(strcmp(symbol_info.si.Name, "IsRefsFormatEnabled") == 0);
 #endif
 #if defined(_M_AMD64) || defined(_M_IX86)
-	const BYTE mov_eax_1_ret[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
-	if (!WriteProcessMemory(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.si.Address), mov_eax_1_ret, sizeof mov_eax_1_ret, nullptr))
+	static const BYTE mov_eax_1_ret[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
+	if (!WriteProcessMemory(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.Address), mov_eax_1_ret, sizeof mov_eax_1_ret, nullptr))
 	{
 		die();
 	}
-	if (!FlushInstructionCache(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.si.Address), sizeof mov_eax_1_ret))
+	if (!FlushInstructionCache(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.Address), sizeof mov_eax_1_ret))
+	{
+		die();
+	}
+#elif defined(_M_ARM64)
+	static const UINT32 mov_w0_1_ret[] = { 0x52800020, 0xD65F03C0 };
+	if (!WriteProcessMemory(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.Address), mov_w0_1_ret, sizeof mov_w0_1_ret, nullptr))
+	{
+		die();
+	}
+	if (!FlushInstructionCache(CurrentProcess, reinterpret_cast<PVOID>(symbol_info.Address), sizeof mov_w0_1_ret))
 	{
 		die();
 	}
@@ -103,7 +115,8 @@ struct format_options
 	bool confirm = true;
 };
 BOOLEAN format_status;
-BOOLEAN WINAPI FormatExCallback(CALLBACKCOMMAND Command, [[maybe_unused]] DWORD SubAction, PVOID ActionInfo)
+#pragma warning(suppress : 26812)
+BOOLEAN WINAPI FormatExCallback(CALLBACKCOMMAND Command, [[maybe_unused]] ULONG SubAction, PVOID ActionInfo)
 {
 	switch (Command)
 	{
@@ -124,14 +137,14 @@ bool Format(const format_options& format_opts)
 	const HMODULE fmifs = LoadLibraryW(L"fmifs");
 	if (!fmifs)
 	{
-		fputs("Load fmifs.dll failed.", stderr);
+		fputs("Load fmifs.dll failed.\n", stderr);
 		_CrtDbgBreak();
 		ExitProcess(EXIT_FAILURE);
 	}
 	const PFORMATEX FormatEx = reinterpret_cast<PFORMATEX>(GetProcAddress(fmifs, "FormatEx"));
 	if (!FormatEx)
 	{
-		fputs("Load fmifs.dll failed.", stderr);
+		fputs("Load fmifs.dll failed.\n", stderr);
 		_CrtDbgBreak();
 		ExitProcess(EXIT_FAILURE);
 	}
@@ -144,7 +157,7 @@ bool Format(const format_options& format_opts)
 	{
 		if (GetLastError() == ERROR_NOT_A_REPARSE_POINT)
 		{
-			fputs("Specified path is not a mount point", stderr);
+			fputs("Specified path is not a mount point.\n", stderr);
 			_CrtDbgBreak();
 			ExitProcess(EXIT_FAILURE);
 		}
@@ -155,7 +168,7 @@ bool Format(const format_options& format_opts)
 	}
 	if (GetDriveTypeW(volume_root) != DRIVE_FIXED)
 	{
-		fputs("Specified drive is not a fixed drive", stderr);
+		fputs("Specified drive is not a fixed drive\n", stderr);
 		_CrtDbgBreak();
 		ExitProcess(EXIT_FAILURE);
 	}
@@ -172,7 +185,7 @@ bool Format(const format_options& format_opts)
 	}
 	if (format_opts.confirm)
 	{
-		printf("Proceed with Format(Y / N) ?");
+		printf("Proceed with Format? (Y / N)");
 		for (;;)
 		{
 			switch (toupper(_getch()))
@@ -257,7 +270,8 @@ bool Format(const format_options& format_opts)
 	}
 	return true;
 }
-[[noreturn]] void usage()
+[[noreturn]]
+void usage()
 {
 	fputs(
 		"Formats a disk for use with Windows.\n"
@@ -355,8 +369,12 @@ int __cdecl wmain(int argc, PWSTR argv[])
 			format_opts.volume = argv[i];
 		}
 	}
+	if (format_opts.volume == nullptr)
+	{
+		usage();
+	}
 
-	RefsFormatEnable();
+	EnableRefsFormat();
 	if (!Format(format_opts))
 	{
 		ExitProcess(EXIT_FAILURE);

@@ -94,6 +94,7 @@
       <DelayLoadDLLs>dbghelp.dll</DelayLoadDLLs>
       <AdditionalDependencies>libvcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>vcruntime.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <MergeSections>_RDATA=.rdata</MergeSections>
       <AdditionalOptions>/PDBALTPATH:%_PDB% /DEPENDENTLOADFLAG:0x800 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Manifest>
