@@ -43,20 +43,16 @@ void EnableRefsFormat()
 	{
 		die();
 	}
-	if (GetEnvironmentVariableW(L"_NT_SYMBOL_PATH", nullptr, 0) == 0)
-	{
-		WCHAR temp[MAX_PATH];
-		ATLENSURE(GetTempPathW(ARRAYSIZE(temp), temp));
-		WCHAR symsrv[ARRAYSIZE(temp) + 4 + 44];
-		ATL::AtlCrtErrorCheck(wcscpy_s(symsrv, L"srv*"));
-		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, temp));
-		ATL::AtlCrtErrorCheck(wcscat_s(symsrv, L"*https://msdl.microsoft.com/download/symbols"));
-		__analysis_assume_nullterminated(symsrv);
-		SetEnvironmentVariableW(L"_NT_SYMBOL_PATH", symsrv);
-	}
-	SymSetOptions(SymGetOptions() | SYMOPT_DEFERRED_LOADS | SYMOPT_FAVOR_COMPRESSED);
+	SymSetOptions(SymGetOptions() | SYMOPT_FAVOR_COMPRESSED);
+	SymSetExtendedOption(SYMOPT_EX_DISABLEACCESSTIMEUPDATE, TRUE);
 	const HANDLE CurrentProcess = GetCurrentProcess();
-	if (!SymInitialize(CurrentProcess, nullptr, FALSE))
+	if (!SymInitializeW(CurrentProcess, L"srv**https://msdl.microsoft.com/download/symbols", FALSE))
+	{
+		die();
+	}
+	WCHAR temp[MAX_PATH];
+	ATLENSURE(GetTempPathW(ARRAYSIZE(temp), temp));
+	if (!SymSetHomeDirectoryW(CurrentProcess, temp))
 	{
 		die();
 	}
@@ -69,17 +65,33 @@ void EnableRefsFormat()
 	{
 		die();
 	}
-	SYMBOL_INFO_PACKAGE symbol_info;
-	symbol_info.si.SizeOfStruct = sizeof(SYMBOL_INFO);
-	symbol_info.si.MaxNameLen = 0;
-	if (!SymFromName(CurrentProcess, "IsRefsFormatEnabled", &symbol_info.si))
+	WCHAR sym[MAX_PATH], dbg[MAX_PATH];
+	if (!SymGetSymbolFileW(CurrentProcess, nullptr, uReFS_Dll, sfPdb, sym, ARRAYSIZE(sym), dbg, ARRAYSIZE(dbg)))
+	{
+		if (GetLastError() == ERROR_FILE_NOT_FOUND)
+		{
+			fputs("Symbol file could not be downloaded.\nPlease try again later.\n", stderr);
+			_CrtDbgBreak();
+			ExitProcess(EXIT_FAILURE);
+		}
+		else
+		{
+			die();
+		}
+	}
+	SYMBOL_INFO symbol_info;
+	symbol_info.SizeOfStruct = sizeof(SYMBOL_INFO);
+	symbol_info.MaxNameLen = 0;
+	if (!SymFromName(CurrentProcess, "IsRefsFormatEnabled", &symbol_info))
 	{
 		die();
 	}
 #ifdef _DEBUG
-	symbol_info.si.MaxNameLen = MAX_SYM_NAME;
-	_ASSERT(SymFromAddr(CurrentProcess, symbol_info.si.Address, nullptr, &symbol_info.si));
-	_ASSERT(strcmp(symbol_info.si.Name, "IsRefsFormatEnabled") == 0);
+	SYMBOL_INFO_PACKAGE symbol_info_package;
+	symbol_info_package.si.SizeOfStruct = sizeof(SYMBOL_INFO);
+	symbol_info_package.si.MaxNameLen = MAX_SYM_NAME;
+	_ASSERT(SymFromAddr(CurrentProcess, symbol_info.Address, nullptr, &symbol_info_package.si));
+	_ASSERT(strcmp(symbol_info_package.si.Name, "IsRefsFormatEnabled") == 0);
 #endif
 #if defined(_M_AMD64) || defined(_M_IX86)
 	static const BYTE mov_eax_1_ret[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3 };
